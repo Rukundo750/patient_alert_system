@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "patient-monitoring-backend": "file:.."
+  }
+}
