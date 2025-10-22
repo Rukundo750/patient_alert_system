@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { apiService, setAuthToken } from '../services/api';
 
-type User = { id: number; username: string; role: 'doctor' | 'nurse'; is_admin?: boolean } | null;
+type User = { id: number; username: string; email?: string; role: 'doctor' | 'nurse'; is_admin?: boolean } | null;
 
 type AuthContextType = {
   user: User;
@@ -26,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // validate token with backend to avoid stale sessions
           const me = await apiService.getMe();
           // keep only minimal user info consumed by the app
-          const minimal = { id: me.id, username: me.username, role: me.role, is_admin: !!(me as any).is_admin } as any;
+          const minimal = { id: me.id, username: me.username, email: (me as any)?.email, role: me.role, is_admin: !!(me as any).is_admin } as any;
           localStorage.setItem('user', JSON.stringify(minimal));
           setUser(minimal);
         } catch {
@@ -43,15 +43,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (usernameOrEmail: string, password: string) => {
     const res = await apiService.login({ usernameOrEmail, password });
     setAuthToken(res.token);
-    localStorage.setItem('user', JSON.stringify(res.user));
-    setUser(res.user);
+    try {
+      const me = await apiService.getMe();
+      const u = { id: me.id, username: me.username, email: (me as any)?.email, role: me.role, is_admin: !!(me as any).is_admin } as any;
+      localStorage.setItem('user', JSON.stringify(u));
+      setUser(u);
+    } catch {
+      localStorage.setItem('user', JSON.stringify(res.user));
+      setUser(res.user);
+    }
   };
 
   const register = async (data: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse' }) => {
     const res = await apiService.register({ ...data });
     setAuthToken(res.token);
-    localStorage.setItem('user', JSON.stringify(res.user));
-    setUser(res.user);
+    try {
+      const me = await apiService.getMe();
+      const u = { id: me.id, username: me.username, email: (me as any)?.email, role: me.role, is_admin: !!(me as any).is_admin } as any;
+      localStorage.setItem('user', JSON.stringify(u));
+      setUser(u);
+    } catch {
+      localStorage.setItem('user', JSON.stringify(res.user));
+      setUser(res.user);
+    }
   };
 
   const logout = () => {

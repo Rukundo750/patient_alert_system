@@ -20,6 +20,8 @@ export default function PatientsView() {
     room: '',
     condition: 'stable',
     device_id: '',
+    date_of_birth: '',
+    gender: '',
   });
   const [availableRooms, setAvailableRooms] = useState<{ id: string; floor?: number; type?: string }[]>([]);
   const [nurses, setNurses] = useState<StaffMember[]>([]);
@@ -32,7 +34,8 @@ export default function PatientsView() {
     const fetchPatients = async () => {
       try {
         const data = await apiService.getPatients();
-        setPatients(data);
+        const unique = Array.from(new Map((data || []).map((p: Patient) => [p.id, p])).values());
+        setPatients(unique);
         // fetch available rooms
         try {
           const rooms = await apiService.getAvailableRooms();
@@ -49,11 +52,7 @@ export default function PatientsView() {
         }
       } catch (error) {
         console.error('Error fetching patients:', error);
-        // Fallback to static data if API fails
-        setPatients([
-          { id: 'P001', name: 'John Doe', contact: '+1234567890', room: '101', latest_hr: 72, latest_spo2: 98 },
-          { id: 'P002', name: 'Jane Smith', contact: '+1234567891', room: '102', latest_hr: 85, latest_spo2: 96 },
-        ]);
+        setPatients([]);
       } finally {
         setLoading(false);
       }
@@ -146,22 +145,26 @@ export default function PatientsView() {
           room: formData.room || undefined,
           condition: formData.condition,
           device_id: formData.device_id || undefined,
+          date_of_birth: (formData as any).date_of_birth || undefined,
+          gender: (formData as any).gender || undefined,
           assigned_nurse_id: (formData as any)?.assigned_nurse_id ?? undefined,
           bed_id: (formData as any)?.bed_id ?? undefined,
         });
         const refreshed = await apiService.getPatients();
-        setPatients(refreshed);
+        const unique = Array.from(new Map((refreshed || []).map((p: Patient) => [p.id, p])).values());
+        setPatients(unique);
         setEditingId(null);
       } else {
         await apiService.addPatient({ ...(formData as any), bed_id: (formData as any)?.bed_id ?? undefined } as any);
         const refreshed = await apiService.getPatients();
-        setPatients(refreshed);
+        const unique = Array.from(new Map((refreshed || []).map((p: Patient) => [p.id, p])).values());
+        setPatients(unique);
       }
-      setFormData({ id: '', name: '', contact: '', room: '', condition: 'stable', device_id: '' });
+      setFormData({ id: '', name: '', contact: '', room: '', condition: 'stable', device_id: '', date_of_birth: '', gender: '' });
       setShowModal(false);
     } catch (error) {
       console.error('Error adding patient:', error);
-      setFormData({ id: '', name: '', contact: '', room: '', condition: 'stable', device_id: '' });
+      setFormData({ id: '', name: '', contact: '', room: '', condition: 'stable', device_id: '', date_of_birth: '', gender: '' });
       setShowModal(false);
     }
   };
@@ -175,6 +178,8 @@ export default function PatientsView() {
       room: p.room || '', 
       condition: 'stable', 
       device_id: (p as any).device_id || '', 
+      date_of_birth: ((p as any).date_of_birth as any) || '',
+      gender: ((p as any).gender as any) || '',
       ...(p as any).assigned_nurse_id != null ? { assigned_nurse_id: (p as any).assigned_nurse_id } as any : {} 
     } as any);
     setShowModal(true);
@@ -272,14 +277,14 @@ export default function PatientsView() {
         </div>
 
         {/* Patient Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPatients.map((patient) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          {filteredPatients.map((patient, idx) => {
             const status = getPatientStatus(patient);
             
             return (
               <div
-                key={patient.id}
-                className="group relative bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                key={`${patient.id}-${idx}`}
+                className="group relative bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 min-h-64"
               >
                 {/* Status Indicator */}
                 <div className="absolute top-4 right-4 flex items-center space-x-2">
@@ -292,8 +297,8 @@ export default function PatientsView() {
                 {/* Patient Header */}
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="relative">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                      <span className="text-white font-bold text-lg">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <span className="text-white font-bold text-xl">
                         {patient.name.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
@@ -321,23 +326,23 @@ export default function PatientsView() {
                 </div>
 
                 {/* Vitals Overview */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-3 border border-red-200 dark:border-red-800">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-5 border border-red-200 dark:border-red-800">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-red-600 dark:text-red-400">Heart Rate</span>
-                      <Activity className="w-4 h-4 text-red-500" />
+                      <span className="text-sm font-medium text-red-600 dark:text-red-400">Heart Rate</span>
+                      <Activity className="w-5 h-5 text-red-500" />
                     </div>
-                    <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                    <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">
                       {patient.latest_hr || '--'}
                       <span className="text-sm font-normal text-gray-500 ml-1">bpm</span>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl p-3 border border-teal-200 dark:border-teal-800">
+                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl p-5 border border-teal-200 dark:border-teal-800">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-teal-600 dark:text-teal-400">SpO2</span>
-                      <Activity className="w-4 h-4 text-teal-500" />
+                      <span className="text-sm font-medium text-teal-600 dark:text-teal-400">SpO2</span>
+                      <Activity className="w-5 h-5 text-teal-500" />
                     </div>
-                    <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                    <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">
                       {patient.latest_spo2 || '--'}
                       <span className="text-sm font-normal text-gray-500 ml-1">%</span>
                     </div>
@@ -399,14 +404,15 @@ export default function PatientsView() {
 
         {/* Add/Edit Patient Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700 shadow-2xl animate-pop-in">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+            <div className="flex min-h-screen items-center justify-center p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 max-w-2xl w-full mx-auto border border-gray-200 dark:border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto animate-pop-in">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  <h3 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
                     {editingId ? 'Update Patient' : 'Register Patient'}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                  <p className="text-gray-600 dark:text-gray-300 text-base mt-1">
                     {editingId ? 'Update patient information' : 'Add a new patient to the system'}
                   </p>
                 </div>
@@ -443,6 +449,33 @@ export default function PatientsView() {
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
                     required
                   />
+                </div>
+
+                {/* DOB & Gender */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="date"
+                      value={(formData as any).date_of_birth as any}
+                      onChange={(e) => setFormData({ ...(formData as any), date_of_birth: e.target.value } as any)}
+                      placeholder="Date of Birth"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <select
+                      value={(formData as any).gender as any}
+                      onChange={(e) => setFormData({ ...(formData as any), gender: e.target.value } as any)}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                      required
+                    >
+                      <option value="" disabled>Select Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -539,17 +572,18 @@ export default function PatientsView() {
                   {editingId ? 'Update Patient' : 'Register Patient'}
                 </button>
               </form>
+              </div>
             </div>
           </div>
         )}
 
         {/* View Patient Modal */}
         {viewing && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-6xl mx-4 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-6 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-7xl mx-6 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl max-h-[92vh] overflow-y-auto">
               {/* Header with Gradient */}
               <div className="relative">
-                <div className="h-32 bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600" />
+                <div className="h-40 bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600" />
                 <button
                   onClick={() => setViewing(null)}
                   className="absolute top-4 right-4 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-lg"
@@ -557,15 +591,15 @@ export default function PatientsView() {
                 >
                   <X className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                 </button>
-                <div className="px-8 -mt-16">
-                  <div className="flex items-end gap-6">
-                    <div className="w-24 h-24 rounded-2xl bg-white dark:bg-gray-800 border-4 border-white dark:border-gray-800 shadow-2xl flex items-center justify-center">
-                      <span className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
+                <div className="px-10 -mt-20">
+                  <div className="flex items-end gap-8">
+                    <div className="w-28 h-28 rounded-2xl bg-white dark:bg-gray-800 border-4 border-white dark:border-gray-800 shadow-2xl flex items-center justify-center">
+                      <span className="text-4xl font-bold text-emerald-700 dark:text-emerald-300">
                         {viewing.name.charAt(0)}
                       </span>
                     </div>
                     <div className="flex-1 pb-6">
-                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{viewing.name}</h3>
+                      <h3 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">{viewing.name}</h3>
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-sm bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-3 py-1.5 rounded-full font-medium">
                           ID: {viewing.id}

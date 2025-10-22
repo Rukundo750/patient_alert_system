@@ -335,7 +335,7 @@ export default function VitalsView() {
       </div>
 
       {/* Patient Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 gap-8">
         {patients.map((patient) => {
           const hrStatus = getVitalStatus('hr', patient.hr);
           const spo2Status = getVitalStatus('spo2', patient.spo2);
@@ -343,24 +343,24 @@ export default function VitalsView() {
           return (
             <div
               key={patient.id}
-              className={`group relative rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${getStatusColor(patient.status)}`}
+              className={`group relative rounded-2xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${getStatusColor(patient.status)}`}
             >
               {/* Patient Header */}
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-5">
                   <div className="relative">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                      <span className="text-white font-semibold text-sm">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <span className="text-white font-semibold text-lg">
                         {patient.name.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white dark:bg-gray-800 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
-                      <div className={`w-2 h-2 rounded-full ${hrStatus.bg} animate-pulse`}></div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white dark:bg-gray-800 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                      <div className={`w-2.5 h-2.5 rounded-full ${hrStatus.bg} animate-pulse`}></div>
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{patient.name}</h3>
-                    <div className="flex items-center space-x-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{patient.name}</h3>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
                       <div className="flex items-center space-x-1">
                         <MapPin className="w-4 h-4" />
                         <span>Room {patient.room}</span>
@@ -372,19 +372,19 @@ export default function VitalsView() {
                     </div>
                   </div>
                 </div>
-                <span className={`text-xs px-3 py-2 rounded-full font-semibold ${getStatusBadge(patient.status)}`}>
+                <span className={`text-sm px-4 py-2 rounded-full font-semibold ${getStatusBadge(patient.status)}`}>
                   {patient.status.toUpperCase()}
                 </span>
               </div>
 
               {/* Vitals Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-6 mb-8">
                 {/* Heart Rate Card */}
-                <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+                <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-red-100 to-pink-100 rounded-xl flex items-center justify-center shadow-sm">
-                        <Heart className="w-5 h-5 text-red-600" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-pink-100 rounded-xl flex items-center justify-center shadow-sm">
+                        <Heart className="w-6 h-6 text-red-600" />
                       </div>
                       <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Heart Rate</span>
                     </div>
@@ -392,24 +392,24 @@ export default function VitalsView() {
                       {hrStatus.label}
                     </span>
                   </div>
-                  <div className="flex items-baseline space-x-2 mb-3">
-                    <span className="text-3xl font-bold text-gray-800 dark:text-gray-100">{patient.hr}</span>
+                  <div className="flex items-baseline space-x-2 mb-4">
+                    <span className="text-4xl font-bold text-gray-800 dark:text-gray-100">{patient.hr}</span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">bpm</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                     <div
-                      className={`h-2 rounded-full transition-all duration-1000 ${hrStatus.bg} shadow-sm`}
+                      className={`h-3 rounded-full transition-all duration-1000 ${hrStatus.bg} shadow-sm`}
                       style={{ width: `${Math.min((patient.hr / 120) * 100, 100)}%` }}
                     ></div>
                   </div>
                 </div>
 
                 {/* SpO2 Card */}
-                <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
+                <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
-                        <Wind className="w-5 h-5 text-emerald-600" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
+                        <Wind className="w-6 h-6 text-emerald-600" />
                       </div>
                       <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">SpO2</span>
                     </div>
@@ -417,13 +417,13 @@ export default function VitalsView() {
                       {spo2Status.label}
                     </span>
                   </div>
-                  <div className="flex items-baseline space-x-2 mb-3">
-                    <span className="text-3xl font-bold text-gray-800 dark:text-gray-100">{patient.spo2}</span>
+                  <div className="flex items-baseline space-x-2 mb-4">
+                    <span className="text-4xl font-bold text-gray-800 dark:text-gray-100">{patient.spo2}</span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">%</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                     <div
-                      className={`h-2 rounded-full transition-all duration-1000 ${spo2Status.bg} shadow-sm`}
+                      className={`h-3 rounded-full transition-all duration-1000 ${spo2Status.bg} shadow-sm`}
                       style={{ width: `${patient.spo2}%` }}
                     ></div>
                   </div>
@@ -431,14 +431,14 @@ export default function VitalsView() {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-5 h-5" />
                   <span>Updated {formatTime(patient.lastUpdate)}</span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">LIVE</span>
+                  <Activity className="w-5 h-5 text-emerald-500 animate-pulse" />
+                  <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">LIVE</span>
                 </div>
               </div>
             </div>

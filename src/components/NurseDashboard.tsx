@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import AlertsView from './AlertsView';
 import { Activity, Shield, Users, Clock } from 'lucide-react';
 import { apiService, Vital, Patient, Room, Alert } from '../services/api';
-import ChartsView from './ChartsView';
 
 export default function NurseDashboard() {
   const [vitals, setVitals] = useState<Vital[]>([]);
@@ -137,7 +136,7 @@ export default function NurseDashboard() {
   const pageRows = rows.slice(start, start + pageSize);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10 p-6">
+    <div className="h-screen overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="mb-8">
@@ -309,11 +308,7 @@ export default function NurseDashboard() {
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden mb-8">
-          <div className="p-6">
-            <ChartsView embedded={true} />
-          </div>
-        </div>
+        {/* Charts section removed per request: keep only Recent Activity and Active Alerts */}
 
         {/* Footer Status */}
         <div className="mt-8 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">

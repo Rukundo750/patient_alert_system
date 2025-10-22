@@ -298,6 +298,7 @@ export default function Login() {
                       value={resetCode}
                       onChange={(e) => setResetCode(e.target.value)}
                       placeholder="Enter 6-digit code"
+                      autoComplete="one-time-code"
                       className="w-full px-4 py-4 rounded-2xl border border-gray-300/80 dark:border-gray-600/80 bg-white/50 dark:bg-gray-900/50 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none text-center text-lg font-semibold tracking-widest backdrop-blur-sm"
                       maxLength={6}
                     />
@@ -327,6 +328,7 @@ export default function Login() {
                       <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="password"
+                        autoComplete="new-password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="New password"
@@ -337,6 +339,7 @@ export default function Login() {
                       <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="password"
+                        autoComplete="new-password"
                         value={newPassword2}
                         onChange={(e) => setNewPassword2(e.target.value)}
                         placeholder="Confirm new password"

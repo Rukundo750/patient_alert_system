@@ -13,7 +13,14 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
-        ws: false,
+        ws: true,
+      },
+      // Proxy Socket.IO websocket endpoint to backend
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
       },
     },
   },

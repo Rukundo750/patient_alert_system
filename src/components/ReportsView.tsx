@@ -330,7 +330,7 @@ export default function ReportsView() {
                     </tr>
                   ) : (
                     tableRows.map((r, idx) => (
-                      <tr key={r.patient_id} className={`${idx % 2 === 1 ? 'bg-gray-50/40 dark:bg-gray-900/40' : ''} border-t border-gray-100 dark:border-gray-800`}>
+                      <tr key={`${r.patient_id}-${idx}`} className={`${idx % 2 === 1 ? 'bg-gray-50/40 dark:bg-gray-900/40' : ''} border-t border-gray-100 dark:border-gray-800`}>
                         <td className="py-3 pl-5 pr-4 text-gray-900 dark:text-gray-100">{r.patient_id}</td>
                         <td className="py-3 pr-4">{r.name}</td>
                         <td className="py-3 pr-4">{r.room}</td>

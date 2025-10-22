@@ -32,6 +32,8 @@ export interface Patient {
   room: string;
   device_id?: string;
   bed_id?: string | null;
+  date_of_birth?: string;
+  gender?: string;
   latest_hr?: number;
   latest_spo2?: number;
   assigned_nurse_id?: number | null;
@@ -106,7 +108,19 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      let message = `API request failed: ${response.statusText}`;
+      try {
+        const data = await response.json();
+        if (data && typeof data.error === 'string' && data.error.trim()) {
+          message = data.error.trim();
+        }
+      } catch (_) {
+        // ignore JSON parse errors
+      }
+      if (response.status === 401 && endpoint.includes('/auth/login')) {
+        message = 'Incorrect username or password';
+      }
+      throw new Error(message);
     }
     return response.json();
   }
@@ -115,7 +129,13 @@ class ApiService {
     return this.request<Patient[]>('/patients');
   }
 
-  async addPatient(patient: Omit<Patient, 'latest_hr' | 'latest_spo2'>): Promise<{ id: number }> {
+  async addPatient(
+    patient: Omit<Patient, 'latest_hr' | 'latest_spo2'> & {
+      condition?: string;
+      bed_id?: string | null;
+      assigned_nurse_id?: number | null;
+    }
+  ): Promise<{ id: number }> {
     return this.request<{ id: number }>('/patients', {
       method: 'POST',
       body: JSON.stringify(patient),
@@ -129,7 +149,7 @@ class ApiService {
       bed_id?: string | null;
       assigned_nurse_id?: number | null;
     }
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; patient?: Patient }> {
     return this.request<{ message: string }>(`/patients/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),

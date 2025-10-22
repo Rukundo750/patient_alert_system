@@ -15,6 +15,10 @@ export default function StaffView() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const isAdmin = user?.role === 'doctor' && (user as any)?.is_admin;
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const filteredNurses = nurses.filter(nurse =>
     nurse.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,19 +57,25 @@ export default function StaffView() {
     }
   };
 
-  const resetPassword = async (id: number, username: string) => {
+  const resetPassword = (n: StaffMember) => {
     if (!isAdmin) return;
-    const pwd = prompt(`Enter a new password for ${username}`);
-    if (!pwd) return;
-    setIsSubmitting(true);
+    setResetTarget(n);
+    setResetPasswordValue('');
+    setResetOpen(true);
+  };
+
+  const submitReset = async () => {
+    if (!isAdmin || !resetTarget || !resetPasswordValue) return;
+    setResetLoading(true);
     try {
-      await apiService.updateStaff(id, { password: pwd });
-      alert('Password reset successfully');
+      await apiService.updateStaff(resetTarget.id, { password: resetPasswordValue });
+      setResetOpen(false);
+      setResetTarget(null);
+      setResetPasswordValue('');
     } catch (e) {
       console.error('Failed to reset password', e);
-      alert('Failed to reset password');
     } finally {
-      setIsSubmitting(false);
+      setResetLoading(false);
     }
   };
 
@@ -360,7 +370,7 @@ export default function StaffView() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => resetPassword(n.id, n.username)}
+                                onClick={() => resetPassword(n)}
                                 className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                               >
                                 Reset
@@ -420,6 +430,58 @@ export default function StaffView() {
             <span className="font-medium">Staff Management System</span>
           </div>
         </div>
+
+        {/* Reset Nurse Password Modal */}
+        {resetOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+            <div className="flex min-h-screen items-center justify-center p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-auto border border-gray-200 dark:border-gray-700 shadow-2xl animate-pop-in">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Reset Password</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{`For: ${resetTarget?.username} (${resetTarget?.email})`}</p>
+                  </div>
+                  <button onClick={() => setResetOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                    <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <Key className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="password"
+                      value={resetPasswordValue}
+                      onChange={(e) => setResetPasswordValue(e.target.value)}
+                      placeholder="Enter new password"
+                      autoComplete="new-password"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setResetOpen(false)}
+                    className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={resetLoading || !resetPasswordValue}
+                    onClick={submitReset}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold disabled:opacity-60 transition-all"
+                  >
+                    {resetLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

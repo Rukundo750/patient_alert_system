@@ -10,6 +10,8 @@ export default function AlertsView() {
   const [patientPlacement, setPatientPlacement] = useState<{ room?: string; floor?: number; type?: string }>({});
   const [patientContact, setPatientContact] = useState<string | undefined>(undefined);
   const [modalLoading, setModalLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -36,6 +38,12 @@ export default function AlertsView() {
     const id = setInterval(fetchAlerts, 5000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    // Reset to first page if data changes or page goes out of range
+    const totalPages = Math.max(1, Math.ceil(alerts.length / pageSize));
+    if (page > totalPages) setPage(1);
+  }, [alerts.length]);
 
   useEffect(() => {
     let cleanup: (() => void) | null = null;
@@ -189,7 +197,7 @@ export default function AlertsView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-900/10 p-6">
+      <div className="h-screen overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-900/10 p-6">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-8"></div>
@@ -204,7 +212,8 @@ export default function AlertsView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-900/10 p-6">
+    <div className="h-screen overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-900/10 p-6">
+      <div className="max-w-7xl mx-auto">
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -227,16 +236,18 @@ export default function AlertsView() {
         </div>
       </div>
 
-      {/* Alerts Grid */}
+      {/* Alerts List */}
       <div className="space-y-6">
-        {alerts.map((alert) => {
+        {alerts
+          .slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+          .map((alert) => {
           const hrStatus = getVitalStatus('hr', alert.heart_rate);
           const spo2Status = getVitalStatus('spo2', alert.spo2);
           
           return (
             <div
               key={alert.id}
-              className={`group relative rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+              className={`group relative rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
                 alert.acknowledged
                   ? 'border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-900/10 dark:to-gray-800 shadow-lg shadow-emerald-500/20'
                   : getSeverityColor(alert.severity)
@@ -309,8 +320,8 @@ export default function AlertsView() {
               </div>
 
               {/* Vital Stats */}
-              <div className="grid grid-cols-3 gap-6 mb-6">
-                <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Heart Rate</span>
                     <div className={`w-2 h-2 rounded-full ${hrStatus.bg} animate-pulse`}></div>
@@ -320,7 +331,7 @@ export default function AlertsView() {
                   </p>
                 </div>
 
-                <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">SpO2</span>
                     <div className={`w-2 h-2 rounded-full ${spo2Status.bg} animate-pulse`}></div>
@@ -330,7 +341,7 @@ export default function AlertsView() {
                   </p>
                 </div>
 
-                <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Time</span>
                     <Clock className="w-4 h-4 text-gray-400" />
@@ -342,11 +353,11 @@ export default function AlertsView() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-4">
+              <div className="flex flex-col md:flex-row md:space-x-4 space-y-3 md:space-y-0">
                 <button
                   type="button"
                   onClick={() => openPatient(alert.patient_id, alert.name || 'Unknown Patient')}
-                  className="flex-1 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                  className="flex-1 px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
                 >
                   <User className="w-4 h-4" />
                   <span>View Patient</span>
@@ -357,7 +368,7 @@ export default function AlertsView() {
                     onClick={() => handleAcknowledge(alert.id)}
                     className={`flex-1 px-6 py-3 font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white`}
                   >
-                    <X className="w-4 h-4" />
+                    <Check className="w-4 h-4" />
                     <span>Accept</span>
                   </button>
                 ) : (
@@ -367,7 +378,7 @@ export default function AlertsView() {
                     className="flex-1 px-6 py-3 font-semibold rounded-xl transition-all duration-200 shadow-lg flex items-center justify-center space-x-2 bg-emerald-600 text-white opacity-90 cursor-default"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Accepted</span>
+                    <span>Acknowledged</span>
                   </button>
                 )}
               </div>
@@ -375,6 +386,32 @@ export default function AlertsView() {
           );
         })}
       </div>
+
+      {/* Pagination Controls */}
+      {alerts.length > pageSize && (
+        <div className="mt-6 flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-xl">
+          <div className="text-sm text-gray-600 dark:text-gray-300">
+            Page <span className="font-semibold">{page}</span> of{' '}
+            <span className="font-semibold">{Math.max(1, Math.ceil(alerts.length / pageSize))}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <button
+              disabled={page >= Math.ceil(alerts.length / pageSize)}
+              onClick={() => setPage((p) => Math.min(Math.ceil(alerts.length / pageSize), p + 1))}
+              className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Empty State */}
       {alerts.filter(a => !a.acknowledged).length === 0 && !loading && (
@@ -520,9 +557,7 @@ export default function AlertsView() {
           <span>•</span>
           <span>Auto-refresh every 5 seconds</span>
         </div>
-        <div className="text-right">
-          <span className="font-medium">Emergency Response System</span>
-        </div>
+      </div>
       </div>
     </div>
   );

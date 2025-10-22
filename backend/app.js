@@ -129,7 +129,7 @@ async function initDB() {
   )`);
 
   await dbRun("CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, floor INTEGER NOT NULL, type TEXT NOT NULL, occupied INTEGER DEFAULT 0, patient_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
-  await dbRun("CREATE TABLE IF NOT EXISTS patients (id TEXT PRIMARY KEY, name TEXT NOT NULL, contact TEXT NOT NULL, room TEXT, condition TEXT DEFAULT 'stable', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  await dbRun("CREATE TABLE IF NOT EXISTS patients (id TEXT PRIMARY KEY, name TEXT NOT NULL, contact TEXT NOT NULL, room TEXT, condition TEXT DEFAULT 'stable', date_of_birth TEXT, gender TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   await dbRun("CREATE TABLE IF NOT EXISTS vitals (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id TEXT NOT NULL, heart_rate INTEGER, spo2 INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(patient_id) REFERENCES patients(id))");
   await dbRun("CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id TEXT NOT NULL, type TEXT NOT NULL, severity TEXT NOT NULL, message TEXT NOT NULL, heart_rate INTEGER, spo2 INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, acknowledged INTEGER DEFAULT 0, FOREIGN KEY(patient_id) REFERENCES patients(id))");
   // Beds for wards
@@ -144,6 +144,18 @@ async function initDB() {
     await dbRun('ALTER TABLE patients ADD COLUMN assigned_nurse_id INTEGER');
   } catch (e) {
     // ignore if column already exists
+  }
+  // Add date_of_birth column if not present
+  try {
+    await dbRun("ALTER TABLE patients ADD COLUMN date_of_birth TEXT");
+  } catch (e) {
+    // ignore
+  }
+  // Add gender column if not present
+  try {
+    await dbRun("ALTER TABLE patients ADD COLUMN gender TEXT");
+  } catch (e) {
+    // ignore
   }
 
   const staffCount = await dbGet('SELECT COUNT(*) as c FROM staff');
@@ -534,20 +546,29 @@ app.get('/api/patients', asyncHandler(async (req, res) => {
                       (SELECT id FROM beds b WHERE b.patient_id = p.id LIMIT 1) as bed_id,
                       s.username AS assigned_nurse_username
                FROM patients p
-               LEFT JOIN vitals v ON p.id = v.patient_id AND v.timestamp = (
-                 SELECT MAX(timestamp) FROM vitals WHERE patient_id = p.id
+               LEFT JOIN vitals v ON v.id = (
+                 SELECT id FROM vitals vv
+                 WHERE vv.patient_id = p.id
+                 ORDER BY datetime(vv.timestamp) DESC, vv.id DESC
+                 LIMIT 1
                )
                LEFT JOIN staff s ON s.id = p.assigned_nurse_id`;
   const rows = await dbAll(sql); res.json(rows);
 }));
 
 app.post('/api/patients', asyncHandler(async (req, res) => {
-  const { id, name, contact, room, condition, bed_id, assigned_nurse_id } = req.body || {};
+  const { id, name, contact, room, condition, bed_id, assigned_nurse_id, date_of_birth, gender } = req.body || {};
   if (!id || !name || !contact) return res.status(400).json({ error: 'Missing fields: id, name, contact are required' });
   const idStr = String(id).trim();
   if (!/^\d{16}$/.test(idStr)) return res.status(400).json({ error: 'patient id must be exactly 16 digits' });
   const phoneDigits = String(contact).replace(/\D/g, '');
   if (phoneDigits.length !== 10) return res.status(400).json({ error: 'phone number must be exactly 10 digits' });
+  // Validate gender basic
+  const normGender = typeof gender === 'string' && gender.trim() ? String(gender).toLowerCase() : null;
+  if (normGender && !['male','female','other'].includes(normGender)) return res.status(400).json({ error: 'invalid gender' });
+  // Validate date_of_birth basic YYYY-MM-DD
+  const dob = typeof date_of_birth === 'string' && date_of_birth.trim() ? date_of_birth.trim() : null;
+  if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return res.status(400).json({ error: 'invalid date_of_birth format, expected YYYY-MM-DD' });
   // Validate assigned nurse if provided
   let nurseId = null;
   if (typeof assigned_nurse_id !== 'undefined' && assigned_nurse_id !== null && assigned_nurse_id !== '') {
@@ -557,7 +578,7 @@ app.post('/api/patients', asyncHandler(async (req, res) => {
     nurseId = Number(assigned_nurse_id);
   }
   const finalize = async (assignRoom) => {
-    await dbRun('INSERT INTO patients (id, name, contact, room, condition, assigned_nurse_id) VALUES (?, ?, ?, ?, ?, ?)', [idStr, name, phoneDigits, assignRoom || null, condition || 'stable', nurseId]);
+    await dbRun('INSERT INTO patients (id, name, contact, room, condition, date_of_birth, gender, assigned_nurse_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [idStr, name, phoneDigits, assignRoom || null, condition || 'stable', dob, normGender, nurseId]);
     if (assignRoom) await dbRun('UPDATE rooms SET occupied = 1, patient_id = ? WHERE id = ?', [idStr, assignRoom]);
     // If a bed is requested, mark it occupied if available
     if (bed_id) {
@@ -580,7 +601,7 @@ app.put('/api/patients/:id', asyncHandler(async (req, res) => {
   const existing = await dbGet('SELECT * FROM patients WHERE id = ?', [idStr]);
   if (!existing) return res.status(404).json({ error: 'Patient not found' });
 
-  const { name, contact, room, condition, bed_id, assigned_nurse_id } = req.body || {};
+  const { name, contact, room, condition, bed_id, assigned_nurse_id, date_of_birth, gender } = req.body || {};
   const nextName = (typeof name === 'string' && name.trim()) ? name.trim() : existing.name;
   let nextContact = existing.contact;
   if (typeof contact === 'string' && contact.trim()) {
@@ -589,6 +610,24 @@ app.put('/api/patients/:id', asyncHandler(async (req, res) => {
     nextContact = phoneDigits;
   }
   const nextCondition = (typeof condition === 'string' && condition.trim()) ? condition.trim() : (existing.condition || 'stable');
+
+  // Merge optional demographics
+  let nextDob = existing.date_of_birth || null;
+  if (typeof date_of_birth !== 'undefined') {
+    if (date_of_birth === null || String(date_of_birth).trim() === '') nextDob = null; else {
+      const s = String(date_of_birth).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return res.status(400).json({ error: 'invalid date_of_birth format, expected YYYY-MM-DD' });
+      nextDob = s;
+    }
+  }
+  let nextGender = existing.gender || null;
+  if (typeof gender !== 'undefined') {
+    if (gender === null || String(gender).trim() === '') nextGender = null; else {
+      const g = String(gender).toLowerCase();
+      if (!['male','female','other'].includes(g)) return res.status(400).json({ error: 'invalid gender' });
+      nextGender = g;
+    }
+  }
 
   // Validate assigned nurse if provided
   let nextAssignedNurseId = existing.assigned_nurse_id || null;
@@ -622,7 +661,7 @@ app.put('/api/patients/:id', asyncHandler(async (req, res) => {
     }
   }
 
-  await dbRun('UPDATE patients SET name = ?, contact = ?, room = ?, condition = ?, assigned_nurse_id = ? WHERE id = ?', [nextName, nextContact, desiredRoom, nextCondition, nextAssignedNurseId, idStr]);
+  await dbRun('UPDATE patients SET name = ?, contact = ?, room = ?, condition = ?, date_of_birth = ?, gender = ?, assigned_nurse_id = ? WHERE id = ?', [nextName, nextContact, desiredRoom, nextCondition, nextDob, nextGender, nextAssignedNurseId, idStr]);
   // Handle bed reassignment: free any existing bed for this patient, then assign new one if provided
   const prevBed = await dbGet('SELECT id FROM beds WHERE patient_id = ? LIMIT 1', [idStr]).catch(() => null);
   if (prevBed && prevBed.id) {
