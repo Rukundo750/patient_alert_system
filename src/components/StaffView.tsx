@@ -19,6 +19,8 @@ export default function StaffView() {
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
 
   const filteredNurses = nurses.filter(nurse =>
     nurse.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -33,16 +35,20 @@ export default function StaffView() {
   useEffect(() => { setPage(1); }, [searchTerm, nurses.length]);
 
   const startEdit = (n: StaffMember) => {
-    setEditingId(n.id);
+    setEditTarget(n);
     setEditDraft({ employe_id: n.employe_id, username: n.username, email: n.email, phone: n.phone || '', gender: (n.gender as any) || '' });
+    setEditOpen(true);
   };
 
   const cancelEdit = () => {
-    setEditingId(null);
+    setEditOpen(false);
+    setEditTarget(null);
     setEditDraft({ employe_id: '', username: '', email: '' });
   };
 
-  const saveEdit = async (id: number) => {
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    const id = editTarget.id;
     setIsSubmitting(true);
     try {
       await apiService.updateStaff(id, { employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email, phone: editDraft.phone ?? null, gender: editDraft.gender ?? null });
@@ -322,108 +328,32 @@ export default function StaffView() {
                     {pageData.map((n, idx) => (
                       <tr key={n.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{start + idx + 1}</td>
-                        <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900 dark:text-gray-100">
-                          {editingId === n.id ? (
-                            <input
-                              value={editDraft.employe_id}
-                              onChange={(e) => setEditDraft({ ...editDraft, employe_id: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                              placeholder="Employee ID"
-                            />
-                          ) : (
-                            n.employe_id
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {editingId === n.id ? (
-                            <input
-                              value={editDraft.username}
-                              onChange={(e) => setEditDraft({ ...editDraft, username: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                              placeholder="Username"
-                            />
-                          ) : (
-                            n.username
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {editingId === n.id ? (
-                            <input
-                              value={editDraft.email}
-                              onChange={(e) => setEditDraft({ ...editDraft, email: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                              placeholder="Email"
-                            />
-                          ) : (
-                            n.email
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {editingId === n.id ? (
-                            <input
-                              value={editDraft.phone || ''}
-                              onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                              placeholder="Phone"
-                            />
-                          ) : (
-                            n.phone || ''
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {editingId === n.id ? (
-                            <select
-                              value={editDraft.gender || ''}
-                              onChange={(e) => setEditDraft({ ...editDraft, gender: e.target.value })}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                            >
-                              <option value="">Gender</option>
-                              <option value="male">Male</option>
-                              <option value="female">Female</option>
-                            </select>
-                          ) : (
-                            (n.gender as any) || ''
-                          )}
-                        </td>
+                        <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900 dark:text-gray-100">{n.employe_id}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{n.username}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">{n.email}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">{n.phone || ''}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">{(n.gender as any) || ''}</td>
                         <td className="px-4 py-3 text-sm text-right">
-                          {editingId === n.id ? (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                onClick={() => saveEdit(n.id)}
-                                disabled={isSubmitting}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold disabled:opacity-50"
-                              >
-                                <Check className="w-4 h-4" /> {isSubmitting ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 text-xs font-semibold"
-                              >
-                                <X className="w-4 h-4" /> Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                onClick={() => startEdit(n)}
-                                className="p-2 rounded border border-gray-300 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => remove(n.id)}
-                                className="p-2 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => resetPassword(n)}
-                                className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                              >
-                                Reset
-                              </button>
-                            </div>
-                          )}
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => startEdit(n)}
+                              className="p-2 rounded border border-gray-300 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => remove(n.id)}
+                              className="p-2 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => resetPassword(n)}
+                              className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                            >
+                              Reset
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -477,6 +407,85 @@ export default function StaffView() {
             <span className="font-medium">Staff Management System</span>
           </div>
         </div>
+
+        {/* Edit Nurse Modal */}
+        {editOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+            <div className="flex min-h-screen items-center justify-center p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-lg w-full mx-auto border border-gray-200 dark:border-gray-700 shadow-2xl animate-pop-in">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Edit Nurse</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{`Editing: ${editTarget?.username} (${editTarget?.email})`}</p>
+                  </div>
+                  <button onClick={cancelEdit} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                    <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      value={editDraft.employe_id}
+                      onChange={(e) => setEditDraft({ ...editDraft, employe_id: e.target.value })}
+                      placeholder="Employee ID"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                    <input
+                      value={editDraft.username}
+                      onChange={(e) => setEditDraft({ ...editDraft, username: e.target.value })}
+                      placeholder="Username"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <input
+                    type="email"
+                    value={editDraft.email}
+                    onChange={(e) => setEditDraft({ ...editDraft, email: e.target.value })}
+                    placeholder="Email"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      value={editDraft.phone || ''}
+                      onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
+                      placeholder="Phone"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                    <select
+                      value={editDraft.gender || ''}
+                      onChange={(e) => setEditDraft({ ...editDraft, gender: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={isSubmitting}
+                    onClick={saveEdit}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold disabled:opacity-60 transition-all"
+                  >
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reset Nurse Password Modal */}
         {resetOpen && (
