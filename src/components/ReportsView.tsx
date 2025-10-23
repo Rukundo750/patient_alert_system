@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiService, Patient, Vital, Alert, Room, StaffMember } from '../services/api';
 
-type Range = '24h' | '7d' | '30d' | 'all';
+type Range = '24h' | '7d' | '30d' | 'all' | 'custom';
 
 
 export default function ReportsView() {
@@ -16,22 +16,34 @@ export default function ReportsView() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('24h');
   const [query, setQuery] = useState('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
         const now = Date.now();
-        const since = range === 'all' ? undefined : new Date(
-          range === '24h' ? now - 24 * 60 * 60 * 1000 :
-          range === '7d' ? now - 7 * 24 * 60 * 60 * 1000 :
-          now - 30 * 24 * 60 * 60 * 1000
-        ).toISOString();
+        let since: string | undefined = undefined;
+        let startISO: string | undefined = undefined;
+        let endISO: string | undefined = undefined;
+        if (range === 'custom') {
+          if (startDate && endDate) {
+            startISO = new Date(`${startDate}T00:00:00.000Z`).toISOString();
+            endISO = new Date(`${endDate}T23:59:59.999Z`).toISOString();
+          }
+        } else if (range !== 'all') {
+          since = new Date(
+            range === '24h' ? now - 24 * 60 * 60 * 1000 :
+            range === '7d' ? now - 7 * 24 * 60 * 60 * 1000 :
+            now - 30 * 24 * 60 * 60 * 1000
+          ).toISOString();
+        }
 
         const [pats, vit, alr, rms] = await Promise.all([
           apiService.getPatients(),
-          apiService.getVitalsHistory(since),
-          apiService.getAlertsHistory(since),
+          apiService.getVitalsHistory(since, startISO, endISO),
+          apiService.getAlertsHistory(since, startISO, endISO),
           apiService.getRooms(),
         ]);
         let st: StaffMember[] = [];
@@ -52,23 +64,41 @@ export default function ReportsView() {
     };
     load();
     return () => { mounted = false; };
-  }, [range]);
+  }, [range, startDate, endDate]);
 
   const now = new Date();
   const minTime = useMemo(() => {
+    if (range === 'custom') {
+      if (startDate) return new Date(`${startDate}T00:00:00.000Z`).getTime();
+      return 0;
+    }
     if (range === 'all') return 0;
     if (range === '24h') return now.getTime() - 24 * 60 * 60 * 1000;
     if (range === '7d') return now.getTime() - 7 * 24 * 60 * 60 * 1000;
     return now.getTime() - 30 * 24 * 60 * 60 * 1000;
-  }, [range]);
+  }, [range, startDate]);
+
+  const maxTime = useMemo(() => {
+    if (range === 'custom') {
+      if (endDate) return new Date(`${endDate}T23:59:59.999Z`).getTime();
+      return Number.POSITIVE_INFINITY;
+    }
+    return Number.POSITIVE_INFINITY;
+  }, [range, endDate]);
 
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(a => new Date(a.timestamp).getTime() >= minTime);
-  }, [alerts, minTime]);
+    return alerts.filter(a => {
+      const t = new Date(a.timestamp).getTime();
+      return t >= minTime && t <= maxTime;
+    });
+  }, [alerts, minTime, maxTime]);
 
   const filteredVitals = useMemo(() => {
-    return vitals.filter(v => new Date(v.timestamp).getTime() >= minTime);
-  }, [vitals, minTime]);
+    return vitals.filter(v => {
+      const t = new Date(v.timestamp).getTime();
+      return t >= minTime && t <= maxTime;
+    });
+  }, [vitals, minTime, maxTime]);
 
   const q = query.trim().toLowerCase();
   const patientsByQuery = useMemo(() => {
@@ -125,7 +155,7 @@ export default function ReportsView() {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      const rangeLabel = range === '24h' ? 'Last 24 hours' : range === '7d' ? 'Last 7 days' : range === '30d' ? 'Last 30 days' : 'All time';
+      const rangeLabel = range === '24h' ? 'Last 24 hours' : range === '7d' ? 'Last 7 days' : range === '30d' ? 'Last 30 days' : range === 'custom' ? `${startDate || '?'} to ${endDate || '?'}` : 'All time';
       const nowStr = new Date().toLocaleString();
 
       // Simple header (first page)
@@ -194,7 +224,7 @@ export default function ReportsView() {
         headStyles: { fillColor: [251, 146, 60], textColor: 255, halign: 'left' },
       });
 
-      const fileName = `admin_report_${range}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
+      const fileName = `admin_report_${range === 'custom' ? `${startDate || 'start'}_to_${endDate || 'end'}` : range}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
       doc.save(fileName);
     } catch (e) {
       console.error(e);
@@ -259,7 +289,25 @@ export default function ReportsView() {
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
               <option value="all">All time</option>
+              <option value="custom">Custom</option>
             </select>
+            {range === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+            )}
             <button onClick={downloadPDF} className="h-10 inline-flex items-center gap-2 px-4 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm">
               <Download className="w-4 h-4" /> Export PDF
             </button>

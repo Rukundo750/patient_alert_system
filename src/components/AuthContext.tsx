@@ -7,7 +7,7 @@ type AuthContextType = {
   user: User;
   loading: boolean;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
-  register: (data: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse' }) => Promise<void>;
+  register: (data: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; phone?: string | null; gender?: string | null }) => Promise<void>;
   logout: () => void;
 };
 
@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (data: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse' }) => {
+  const register = async (data: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; phone?: string | null; gender?: string | null }) => {
     const res = await apiService.register({ ...data });
     setAuthToken(res.token);
     try {

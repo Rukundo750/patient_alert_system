@@ -8,9 +8,9 @@ export default function StaffView() {
   const [nurses, setNurses] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', phone: '', gender: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState<{ employe_id: string; username: string; email: string; password?: string }>({ employe_id: '', username: '', email: '' });
+  const [editDraft, setEditDraft] = useState<{ employe_id: string; username: string; email: string; phone?: string | null; gender?: string | null; password?: string }>({ employe_id: '', username: '', email: '', phone: '', gender: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -34,7 +34,7 @@ export default function StaffView() {
 
   const startEdit = (n: StaffMember) => {
     setEditingId(n.id);
-    setEditDraft({ employe_id: n.employe_id, username: n.username, email: n.email });
+    setEditDraft({ employe_id: n.employe_id, username: n.username, email: n.email, phone: n.phone || '', gender: (n.gender as any) || '' });
   };
 
   const cancelEdit = () => {
@@ -45,12 +45,12 @@ export default function StaffView() {
   const saveEdit = async (id: number) => {
     setIsSubmitting(true);
     try {
-      await apiService.updateStaff(id, { ...editDraft });
-      setNurses(nurses.map(n => n.id === id ? { ...n, employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email } : n));
+      await apiService.updateStaff(id, { employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email, phone: editDraft.phone ?? null, gender: editDraft.gender ?? null });
+      setNurses(nurses.map(n => n.id === id ? { ...n, employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email, phone: editDraft.phone ?? null, gender: editDraft.gender ?? null } : n));
       cancelEdit();
     } catch (e) {
       console.error('Failed to update nurse', e);
-      setNurses(nurses.map(n => n.id === id ? { ...n, employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email } : n));
+      setNurses(nurses.map(n => n.id === id ? { ...n, employe_id: editDraft.employe_id, username: editDraft.username, email: editDraft.email, phone: editDraft.phone ?? null, gender: editDraft.gender ?? null } : n));
       cancelEdit();
     } finally {
       setIsSubmitting(false);
@@ -110,15 +110,15 @@ export default function StaffView() {
     if (!isAdmin) return;
     setIsSubmitting(true);
     try {
-      const created = await apiService.createStaff({ username: form.username, email: form.email, password: form.password, role: 'nurse' });
+      const created = await apiService.createStaff({ username: form.username, email: form.email, password: form.password, role: 'nurse', phone: form.phone || null, gender: form.gender || null });
       setNurses([created, ...nurses]);
-      setForm({ username: '', email: '', password: '' });
+      setForm({ username: '', email: '', password: '', phone: '', gender: '' });
     } catch (e) {
       console.error('Failed to create nurse', e);
       // optimistic fallback
-      const optimistic: StaffMember = { id: Date.now(), employe_id: 'EMP-' + Math.random().toString(36).slice(2,8).toUpperCase(), username: form.username, email: form.email, role: 'nurse', is_admin: 0 } as any;
+      const optimistic: StaffMember = { id: Date.now(), employe_id: 'EMP-' + Math.random().toString(36).slice(2,8).toUpperCase(), username: form.username, email: form.email, role: 'nurse', is_admin: 0, phone: form.phone || null, gender: form.gender || null } as any;
       setNurses([optimistic, ...nurses]);
-      setForm({ username: '', email: '', password: '' });
+      setForm({ username: '', email: '', password: '', phone: '', gender: '' });
     } finally {
       setIsSubmitting(false);
     }
@@ -237,6 +237,24 @@ export default function StaffView() {
                     required 
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input 
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="Phone Number"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                  />
+                  <select 
+                    value={form.gender}
+                    onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="">Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
               </div>
 
               <button 
@@ -295,6 +313,8 @@ export default function StaffView() {
                       <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-200">Employee ID</th>
                       <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-200">Username</th>
                       <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-200">Email</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-200">Phone</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-200">Gender</th>
                       <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 dark:text-gray-200">Actions</th>
                     </tr>
                   </thead>
@@ -336,6 +356,33 @@ export default function StaffView() {
                             />
                           ) : (
                             n.email
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
+                          {editingId === n.id ? (
+                            <input
+                              value={editDraft.phone || ''}
+                              onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                              placeholder="Phone"
+                            />
+                          ) : (
+                            n.phone || ''
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
+                          {editingId === n.id ? (
+                            <select
+                              value={editDraft.gender || ''}
+                              onChange={(e) => setEditDraft({ ...editDraft, gender: e.target.value })}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                            >
+                              <option value="">Gender</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                            </select>
+                          ) : (
+                            (n.gender as any) || ''
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm text-right">

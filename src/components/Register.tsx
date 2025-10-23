@@ -9,6 +9,8 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'doctor' | 'nurse'>('nurse');
+  const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,12 +20,12 @@ export default function Register() {
     setLoading(true);
     try {
       if (role === 'nurse') {
-        await apiService.registerNurse({ employe_id, username, email, password });
+        await apiService.registerNurse({ employe_id, username, email, password, phone: phone || null, gender: gender || null });
         // hydrate auth context manually
-        await register({ employe_id, username, email, password, role: 'nurse' });
+        await register({ employe_id, username, email, password, role: 'nurse', phone: phone || null, gender: gender || null });
       } else {
         // fallback to context register (requires doctor admin session; mainly for completeness)
-        await register({ employe_id, username, email, password, role });
+        await register({ employe_id, username, email, password, role, phone: phone || null, gender: gender || null });
       }
     } catch (e: any) {
       setError(e?.message || 'Registration failed');
@@ -48,6 +50,18 @@ export default function Register() {
         <div>
           <label className="block text-sm mb-1">Email</label>
           <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Phone Number</label>
+          <input autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Gender</label>
+          <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
+            <option value="">Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm mb-1">Password</label>

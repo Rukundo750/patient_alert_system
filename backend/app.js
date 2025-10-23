@@ -86,13 +86,13 @@ function authRequired(req, res, next) {
 
 // Current user profile
 app.get('/api/me', authRequired, asyncHandler(async (req, res) => {
-  const me = await dbGet('SELECT id, employe_id, username, email, role, is_admin FROM staff WHERE id = ?', [req.user.id]);
+  const me = await dbGet('SELECT id, employe_id, username, email, role, is_admin, phone, gender FROM staff WHERE id = ?', [req.user.id]);
   if (!me) return res.status(404).json({ error: 'User not found' });
   res.json(me);
 }));
 
 app.put('/api/me', authRequired, asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body || {};
+  const { username, email, password, phone, gender } = req.body || {};
   const me = await dbGet('SELECT * FROM staff WHERE id = ?', [req.user.id]);
   if (!me) return res.status(404).json({ error: 'User not found' });
   const nextUsername = (typeof username === 'string' && username.trim()) ? username.trim() : me.username;
@@ -106,13 +106,15 @@ app.put('/api/me', authRequired, asyncHandler(async (req, res) => {
     const exists = await dbGet('SELECT id FROM staff WHERE email = ?', [nextEmail]);
     if (exists && exists.id !== me.id) return res.status(409).json({ error: 'email already exists' });
   }
+  const nextPhone = (typeof phone === 'string') ? (phone.trim() || null) : me.phone || null;
+  const nextGender = (typeof gender === 'string') ? (gender.trim() || null) : me.gender || null;
   if (password && String(password).trim()) {
     const hash = await bcrypt.hash(String(password), 10);
-    await dbRun('UPDATE staff SET username = ?, email = ?, password_hash = ? WHERE id = ?', [nextUsername, nextEmail, hash, me.id]);
+    await dbRun('UPDATE staff SET username = ?, email = ?, password_hash = ?, phone = ?, gender = ? WHERE id = ?', [nextUsername, nextEmail, hash, nextPhone, nextGender, me.id]);
   } else {
-    await dbRun('UPDATE staff SET username = ?, email = ? WHERE id = ?', [nextUsername, nextEmail, me.id]);
+    await dbRun('UPDATE staff SET username = ?, email = ?, phone = ?, gender = ? WHERE id = ?', [nextUsername, nextEmail, nextPhone, nextGender, me.id]);
   }
-  const updated = await dbGet('SELECT id, employe_id, username, email, role, is_admin FROM staff WHERE id = ?', [me.id]);
+  const updated = await dbGet('SELECT id, employe_id, username, email, role, is_admin, phone, gender FROM staff WHERE id = ?', [me.id]);
   res.json({ message: 'Profile updated', user: { ...updated, is_admin: !!updated.is_admin } });
 }));
 async function initDB() {
@@ -156,6 +158,18 @@ async function initDB() {
     await dbRun("ALTER TABLE patients ADD COLUMN gender TEXT");
   } catch (e) {
     // ignore
+  }
+
+  // Add phone and gender columns to staff if not present
+  try {
+    await dbRun("ALTER TABLE staff ADD COLUMN phone TEXT");
+  } catch (e) {
+    // ignore if exists
+  }
+  try {
+    await dbRun("ALTER TABLE staff ADD COLUMN gender TEXT");
+  } catch (e) {
+    // ignore if exists
   }
 
   const staffCount = await dbGet('SELECT COUNT(*) as c FROM staff');
@@ -256,17 +270,34 @@ async function notifyStaffOfAlert(alert) {
 
 // Auth
 app.post('/api/auth/register', asyncHandler(async (req, res) => {
-  const { employe_id, username, email, password, role = 'nurse', is_admin = 0 } = req.body || {};
+  const { employe_id, username, email, password, role = 'nurse', is_admin = 0, phone = null, gender = null } = req.body || {};
   if (!username || !email || !password) return res.status(400).json({ error: 'username, email and password required' });
   const eid = employe_id && String(employe_id).trim() ? String(employe_id).trim() : generateEmployeeId();
   const hash = await bcrypt.hash(password, 10);
   try {
-    await dbRun('INSERT INTO staff (employe_id, username, email, password_hash, role, is_admin) VALUES (?, ?, ?, ?, ?, ?)', [eid, username, email, hash, role === 'doctor' ? 'doctor' : 'nurse', is_admin ? 1 : 0]);
+    await dbRun('INSERT INTO staff (employe_id, username, email, password_hash, role, is_admin, phone, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [eid, username, email, hash, role === 'doctor' ? 'doctor' : 'nurse', is_admin ? 1 : 0, phone, gender]);
   } catch (e) {
     if (e && /UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'employe_id, username or email already exists' });
     throw e;
   }
-  const user = await dbGet('SELECT id, employe_id, username, email, role, is_admin FROM staff WHERE username = ?', [username]);
+  const user = await dbGet('SELECT id, employe_id, username, email, role, is_admin, phone, gender FROM staff WHERE username = ?', [username]);
+  const token = signToken(user);
+  res.status(201).json({ token, user });
+}));
+
+// Dedicated endpoint to register a nurse (used by frontend Register.tsx)
+app.post('/api/auth/register-nurse', asyncHandler(async (req, res) => {
+  const { employe_id, username, email, password, phone = null, gender = null } = req.body || {};
+  if (!username || !email || !password) return res.status(400).json({ error: 'username, email and password required' });
+  const eid = employe_id && String(employe_id).trim() ? String(employe_id).trim() : generateEmployeeId();
+  const hash = await bcrypt.hash(password, 10);
+  try {
+    await dbRun('INSERT INTO staff (employe_id, username, email, password_hash, role, is_admin, phone, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [eid, username, email, hash, 'nurse', 0, phone, gender]);
+  } catch (e) {
+    if (e && /UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'employe_id, username or email already exists' });
+    throw e;
+  }
+  const user = await dbGet('SELECT id, employe_id, username, email, role, is_admin, phone, gender FROM staff WHERE username = ?', [username]);
   const token = signToken(user);
   res.status(201).json({ token, user });
 }));
@@ -440,7 +471,7 @@ if ((process.env.NODE_ENV || 'development') !== 'production') {
 // Staff
 app.get('/api/staff', asyncHandler(async (req, res) => {
   const { role } = req.query;
-  let sql = 'SELECT id, employe_id, username, email, role, is_admin, created_at FROM staff';
+  let sql = 'SELECT id, employe_id, username, email, role, is_admin, phone, gender, created_at FROM staff';
   const params = [];
   if (role) { sql += ' WHERE role = ?'; params.push(role); }
   const rows = await dbAll(sql, params);
@@ -448,12 +479,12 @@ app.get('/api/staff', asyncHandler(async (req, res) => {
 }));
 
 app.post('/api/staff', asyncHandler(async (req, res) => {
-  const { employe_id, username, email, password, role = 'nurse', is_admin = 0 } = req.body || {};
+  const { employe_id, username, email, password, role = 'nurse', is_admin = 0, phone = null, gender = null } = req.body || {};
   if (!username || !email || !password) return res.status(400).json({ error: 'username, email and password required' });
   const eid = employe_id && String(employe_id).trim() ? String(employe_id).trim() : generateEmployeeId();
   const hash = await bcrypt.hash(password, 10);
-  try { await dbRun('INSERT INTO staff (employe_id, username, email, password_hash, role, is_admin) VALUES (?, ?, ?, ?, ?, ?)', [eid, username, email, hash, role === 'doctor' ? 'doctor' : 'nurse', is_admin ? 1 : 0]); } catch (e) { if (e && /UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'employe_id, username or email already exists' }); throw e; }
-  const created = await dbGet('SELECT id, employe_id, username, email, role, is_admin FROM staff WHERE username = ?', [username]);
+  try { await dbRun('INSERT INTO staff (employe_id, username, email, password_hash, role, is_admin, phone, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [eid, username, email, hash, role === 'doctor' ? 'doctor' : 'nurse', is_admin ? 1 : 0, phone, gender]); } catch (e) { if (e && /UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'employe_id, username or email already exists' }); throw e; }
+  const created = await dbGet('SELECT id, employe_id, username, email, role, is_admin, phone, gender FROM staff WHERE username = ?', [username]);
   res.status(201).json(created);
 }));
 
@@ -464,7 +495,7 @@ app.put('/api/staff/:id', authRequired, asyncHandler(async (req, res) => {
   const target = await dbGet('SELECT * FROM staff WHERE id = ?', [Number(id)]);
   if (!target) return res.status(404).json({ error: 'Staff not found' });
 
-  const { employe_id, username, email, role, is_admin, password } = req.body || {};
+  const { employe_id, username, email, role, is_admin, password, phone, gender } = req.body || {};
   if (role && !['doctor','nurse'].includes(String(role))) return res.status(400).json({ error: 'Invalid role' });
 
   let nextEmployeId = (typeof employe_id === 'string' && employe_id.trim()) ? employe_id.trim() : target.employe_id;
@@ -472,6 +503,8 @@ app.put('/api/staff/:id', authRequired, asyncHandler(async (req, res) => {
   let nextEmail = (typeof email === 'string' && email.trim()) ? email.trim() : target.email;
   let nextRole = role ? (role === 'doctor' ? 'doctor' : 'nurse') : target.role;
   let nextIsAdmin = (typeof is_admin !== 'undefined') ? (is_admin ? 1 : 0) : target.is_admin;
+  let nextPhone = (typeof phone === 'string' && phone.trim()) ? phone.trim() : (typeof phone === 'string' && phone === '' ? null : target.phone || null);
+  let nextGender = (typeof gender === 'string' && gender.trim()) ? gender.trim() : (typeof gender === 'string' && gender === '' ? null : target.gender || null);
 
   if (nextEmployeId !== target.employe_id) {
     const exists = await dbGet('SELECT id FROM staff WHERE employe_id = ?', [nextEmployeId]);
@@ -488,9 +521,9 @@ app.put('/api/staff/:id', authRequired, asyncHandler(async (req, res) => {
 
   if (password && String(password).trim()) {
     const hash = await bcrypt.hash(String(password), 10);
-    await dbRun('UPDATE staff SET employe_id = ?, username = ?, email = ?, role = ?, is_admin = ?, password_hash = ? WHERE id = ?', [nextEmployeId, nextUsername, nextEmail, nextRole, nextIsAdmin, hash, Number(id)]);
+    await dbRun('UPDATE staff SET employe_id = ?, username = ?, email = ?, role = ?, is_admin = ?, password_hash = ?, phone = ?, gender = ? WHERE id = ?', [nextEmployeId, nextUsername, nextEmail, nextRole, nextIsAdmin, hash, nextPhone, nextGender, Number(id)]);
   } else {
-    await dbRun('UPDATE staff SET employe_id = ?, username = ?, email = ?, role = ?, is_admin = ? WHERE id = ?', [nextEmployeId, nextUsername, nextEmail, nextRole, nextIsAdmin, Number(id)]);
+    await dbRun('UPDATE staff SET employe_id = ?, username = ?, email = ?, role = ?, is_admin = ?, phone = ?, gender = ? WHERE id = ?', [nextEmployeId, nextUsername, nextEmail, nextRole, nextIsAdmin, nextPhone, nextGender, Number(id)]);
   }
 
   res.json({ message: 'Staff updated' });
@@ -731,20 +764,30 @@ app.get('/api/vitals/:patientId', asyncHandler(async (req, res) => {
 
 // Historical vitals and alerts for reports
 app.get('/api/vitals/history', asyncHandler(async (req, res) => {
-  const { since } = req.query;
+  const { since, start_date, end_date } = req.query;
   let sql = 'SELECT v.*, p.name, p.room FROM vitals v LEFT JOIN patients p ON p.id = v.patient_id';
   const params = [];
-  if (since) { sql += ' WHERE v.timestamp >= ?'; params.push(String(since)); }
+  const where = [];
+  if (start_date) { where.push('v.timestamp >= ?'); params.push(String(start_date)); }
+  if (end_date) { where.push('v.timestamp <= ?'); params.push(String(end_date)); }
+  // Backward compatibility: if no start/end provided, allow 'since'
+  if (!start_date && !end_date && since) { where.push('v.timestamp >= ?'); params.push(String(since)); }
+  if (where.length) sql += ' WHERE ' + where.join(' AND ');
   sql += ' ORDER BY v.timestamp DESC LIMIT 2000';
   const rows = await dbAll(sql, params);
   res.json(rows);
 }));
 
 app.get('/api/alerts/history', asyncHandler(async (req, res) => {
-  const { since } = req.query;
+  const { since, start_date, end_date } = req.query;
   let sql = 'SELECT a.*, p.name, p.room FROM alerts a LEFT JOIN patients p ON p.id = a.patient_id';
   const params = [];
-  if (since) { sql += ' WHERE a.timestamp >= ?'; params.push(String(since)); }
+  const where = [];
+  if (start_date) { where.push('a.timestamp >= ?'); params.push(String(start_date)); }
+  if (end_date) { where.push('a.timestamp <= ?'); params.push(String(end_date)); }
+  // Backward compatibility: if no start/end provided, allow 'since'
+  if (!start_date && !end_date && since) { where.push('a.timestamp >= ?'); params.push(String(since)); }
+  if (where.length) sql += ' WHERE ' + where.join(' AND ');
   sql += ' ORDER BY a.timestamp DESC LIMIT 2000';
   const rows = await dbAll(sql, params);
   res.json(rows);

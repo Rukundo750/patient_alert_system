@@ -94,6 +94,8 @@ export interface StaffMember {
   email: string;
   role: 'doctor' | 'nurse';
   is_admin: number | boolean;
+  phone?: string | null;
+  gender?: string | null;
 }
 
 class ApiService {
@@ -174,13 +176,21 @@ class ApiService {
     return this.request<Alert[]>('/alerts');
   }
 
-  async getVitalsHistory(since?: string): Promise<Vital[]> {
-    const q = since ? `?since=${encodeURIComponent(since)}` : '';
+  async getVitalsHistory(since?: string, start_date?: string, end_date?: string): Promise<Vital[]> {
+    const params = new URLSearchParams();
+    if (start_date) params.append('start_date', start_date);
+    if (end_date) params.append('end_date', end_date);
+    if (!start_date && !end_date && since) params.append('since', since);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return this.request<Vital[]>(`/vitals/history${q}`);
   }
 
-  async getAlertsHistory(since?: string): Promise<Alert[]> {
-    const q = since ? `?since=${encodeURIComponent(since)}` : '';
+  async getAlertsHistory(since?: string, start_date?: string, end_date?: string): Promise<Alert[]> {
+    const params = new URLSearchParams();
+    if (start_date) params.append('start_date', start_date);
+    if (end_date) params.append('end_date', end_date);
+    if (!start_date && !end_date && since) params.append('since', since);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return this.request<Alert[]>(`/alerts/history${q}`);
   }
 
@@ -254,14 +264,14 @@ class ApiService {
     return this.request<StaffMember[]>(`/staff${q}`);
   }
 
-  async createStaff(body: { employe_id?: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; is_admin?: number }): Promise<StaffMember> {
+  async createStaff(body: { employe_id?: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; is_admin?: number; phone?: string | null; gender?: string | null }): Promise<StaffMember> {
     return this.request<StaffMember>(`/staff`, {
       method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
-  async updateStaff(id: number, body: Partial<{ employe_id: string; username: string; email: string; password: string; role: 'doctor' | 'nurse'; is_admin: number }>): Promise<{ message: string }> {
+  async updateStaff(id: number, body: Partial<{ employe_id: string; username: string; email: string; password: string; role: 'doctor' | 'nurse'; is_admin: number; phone: string | null; gender: string | null }>): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/staff/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
@@ -275,7 +285,7 @@ class ApiService {
   }
 
   // Auth
-  async register(body: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; is_admin?: number }) {
+  async register(body: { employe_id: string; username: string; email: string; password: string; role?: 'doctor' | 'nurse'; is_admin?: number; phone?: string | null; gender?: string | null }) {
     return this.request<{ token: string; user: any }>(`/auth/register`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -317,7 +327,7 @@ class ApiService {
     });
   }
 
-  async registerNurse(body: { employe_id: string; username: string; email: string; password: string }) {
+  async registerNurse(body: { employe_id: string; username: string; email: string; password: string; phone?: string | null; gender?: string | null }) {
     return this.request<{ token: string; user: any }>(`/auth/register-nurse`, {
       method: 'POST',
       body: JSON.stringify(body),
